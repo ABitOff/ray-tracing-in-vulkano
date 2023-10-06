@@ -4,5 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+imgui = { git = "https://github.com/imgui-rs/imgui-rs.git", rev = "refs/pull/716/head" }
+imgui-winit-support = { git = "https://github.com/imgui-rs/imgui-rs.git", rev = "refs/pull/716/head" }
+vulkano = "0.33.0"
+vulkano-shaders = "0.33.0"
+vulkano-win = "0.33.0"
+winit = "0.28.6"
+imgui-vulkano-renderer = { git = "https://github.com/s5suzuki/imgui-vulkano-renderer.git", branch = "vulkano-0.33.0" }
