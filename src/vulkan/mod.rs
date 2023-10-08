@@ -1,3 +1,6 @@
+pub mod application;
+pub mod window;
+
 pub struct WindowConfig {
     pub title: String,
     pub width: u32,

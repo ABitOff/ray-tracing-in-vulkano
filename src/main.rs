@@ -1,3 +1,7 @@
+use raytracer::RayTracer;
+use vulkano::swapchain::PresentMode;
+
+mod raytracer;
 mod vulkan;
 
 struct Options {
@@ -34,7 +38,7 @@ impl Default for Options {
     }
 }
 
-struct UserSettings {
+pub struct UserSettings {
     pub benchmark: bool,
     pub benchmark_next_scenes: bool,
     pub benchmark_max_time: u32,
@@ -102,7 +106,18 @@ fn main() {
         resizable: !options.fullscreen,
     };
 
-    // make RayTracer
+    let _application = RayTracer::new(
+        settings,
+        window_config,
+        match options.present_mode {
+            0 => PresentMode::Immediate,
+            1 => PresentMode::Mailbox,
+            2 => PresentMode::Fifo,
+            3 => PresentMode::FifoRelaxed,
+            _ => panic!(),
+        },
+        &options.visible_devices,
+    );
 
     print_vulkan_sdk_info();
 }
