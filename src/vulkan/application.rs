@@ -79,7 +79,6 @@ impl Application {
                     })
                     .max()
                     .ok_or(ApplicationCreationError::NoVideoModeError)?;
-                println!("{:?}", video_mode);
                 video_mode
             }))
         } else {

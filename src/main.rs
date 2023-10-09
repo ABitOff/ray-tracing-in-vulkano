@@ -128,6 +128,10 @@ fn main() {
     };
 
     print_vulkan_sdk_info();
+    print_vulkan_instance_info(&application, options.benchmark);
+    print_vulkan_layers_info(&application, options.benchmark);
+    print_vulkan_devices(&application, &options.visible_devices);
+    print_vulkan_swapchain_info(&application);
 
     application.run();
 }
@@ -137,4 +141,95 @@ fn print_vulkan_sdk_info() {
         "Vulkan SDK Header Version: {}",
         vulkano::Version::HEADER_VERSION
     );
+    println!("");
+}
+
+fn print_vulkan_instance_info(app: &RayTracer, benchmark: bool) {
+    if benchmark {
+        return;
+    }
+
+    println!("Vulkan Instance Extensions:");
+
+    println!("{:?}", app.application.instance.enabled_extensions());
+
+    println!("");
+}
+
+fn print_vulkan_layers_info(app: &RayTracer, benchmark: bool) {
+    if benchmark {
+        return;
+    }
+
+    println!("Vulkan Instance Layers:");
+
+    println!("{:?}", app.application.instance.enabled_layers());
+
+    println!("");
+}
+
+fn print_vulkan_devices(app: &RayTracer, visible_devices: &Option<Vec<u32>>) {
+    println!("Vulkan Devices:");
+
+    match app.application.instance.enumerate_physical_devices() {
+        Err(e) => {
+            eprintln!(
+                "Failed to enumerate physical devices. Cannot print devices... {}",
+                e
+            );
+            return;
+        }
+        Ok(pds) => pds.for_each(|pd| {
+            let props = pd.properties();
+
+            if visible_devices.as_ref().map_or(false, |v| !v.contains(&props.device_id)) {
+                return;
+            }
+
+            with_vendor_id_string(props.vendor_id, |vendor_id| {
+                println!(
+                    "- [{}] {} '{}' ({:?}; Vulkan: {}; Driver: {}, '{}' - {})",
+                    props.device_id,
+                    vendor_id,
+                    props.device_name,
+                    props.device_type,
+                    props.api_version,
+                    props
+                        .driver_name
+                        .as_ref()
+                        .unwrap_or(&"Unnamed Driver".into()),
+                    props
+                        .driver_info
+                        .as_ref()
+                        .unwrap_or(&"No Driver Info".into()),
+                    props.driver_version,
+                );
+            })
+        }),
+    }
+
+    println!("");
+}
+
+fn print_vulkan_swapchain_info(app: &RayTracer) {
+    println!("Swapchain:");
+    println!("- image count: {}", app.application.swapchain.image_count());
+    println!(
+        "- present mode: {:?}",
+        app.application.swapchain.present_mode()
+    );
+    println!("");
+}
+
+fn with_vendor_id_string(vendor_id: u32, f: impl FnOnce(&str) -> ()) {
+    let s = match vendor_id {
+        0x1002 => "AMD",
+        0x1010 => "ImgTec",
+        0x10DE => "NVIDIA",
+        0x13B5 => "ARM",
+        0x5143 => "Qualcomm",
+        0x8086 => "INTEL",
+        _ => "UnknownVendor",
+    };
+    f(s);
 }

@@ -9,8 +9,8 @@ use crate::{
 };
 
 pub struct RayTracer {
-    application: Application,
-    _user_settings: UserSettings,
+    pub application: Application,
+    pub user_settings: UserSettings,
 }
 
 impl RayTracer {
@@ -22,7 +22,7 @@ impl RayTracer {
     ) -> Result<RayTracer, ApplicationCreationError> {
         Ok(RayTracer {
             application: Application::new(window_config, present_mode, visible_devices)?,
-            _user_settings: user_settings,
+            user_settings,
         })
     }
 
