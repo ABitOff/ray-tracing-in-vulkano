@@ -15,6 +15,7 @@ use vulkano::{
     LoadingError, VulkanError, VulkanLibrary,
 };
 use winit::{
+    dpi::PhysicalSize,
     error::OsError,
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -22,23 +23,23 @@ use winit::{
 };
 
 pub struct Application {
-    event_loop: EventLoop<()>,
-    present_mode: PresentMode,
-    window: Window,
-    instance: Arc<Instance>,
-    surface: Arc<Surface>,
-    device: Arc<Device>,
-    swapchain: Arc<Swapchain>,
-    uniform_buffers: Vec<usize>,            // TODO
-    depth_buffer: usize,                    // TODO
-    graphics_pipeline: usize,               // TODO
-    swapchain_frame_buffers: Vec<usize>,    // TODO
-    command_pool: usize,                    // TODO
-    command_buffers: usize,                 // TODO
-    image_available_semaphores: Vec<usize>, // TODO
-    render_finished_semaphores: Vec<usize>, // TODO
-    in_flight_fences: Vec<usize>,           // TODO
-    current_frame: usize,
+    pub event_loop: EventLoop<()>,
+    pub present_mode: PresentMode,
+    pub window: Window,
+    pub instance: Arc<Instance>,
+    pub surface: Arc<Surface>,
+    pub device: Arc<Device>,
+    pub swapchain: Arc<Swapchain>,
+    pub uniform_buffers: Vec<usize>,            // TODO
+    pub depth_buffer: usize,                    // TODO
+    pub graphics_pipeline: usize,               // TODO
+    pub swapchain_frame_buffers: Vec<usize>,    // TODO
+    pub command_pool: usize,                    // TODO
+    pub command_buffers: usize,                 // TODO
+    pub image_available_semaphores: Vec<usize>, // TODO
+    pub render_finished_semaphores: Vec<usize>, // TODO
+    pub in_flight_fences: Vec<usize>,           // TODO
+    pub current_frame: usize,
 }
 
 impl Application {
@@ -64,13 +65,23 @@ impl Application {
         let el = EventLoop::new();
 
         let fullscreen = if window_config.fullscreen {
-            Some(winit::window::Fullscreen::Exclusive(
-                el.primary_monitor()
+            Some(winit::window::Fullscreen::Exclusive({
+                let video_mode = el
+                    .primary_monitor()
                     .ok_or(ApplicationCreationError::NoPrimaryMonitorError)?
                     .video_modes()
+                    .filter(|vm| {
+                        // enforce window size is what Vulkan expects
+                        vm.size().eq(&PhysicalSize {
+                            width: window_config.width,
+                            height: window_config.height,
+                        })
+                    })
                     .max()
-                    .ok_or(ApplicationCreationError::NoVideoModeError)?,
-            ))
+                    .ok_or(ApplicationCreationError::NoVideoModeError)?;
+                println!("{:?}", video_mode);
+                video_mode
+            }))
         } else {
             None
         };
