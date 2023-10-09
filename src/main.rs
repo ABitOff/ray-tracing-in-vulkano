@@ -106,7 +106,7 @@ fn main() {
         resizable: !options.fullscreen,
     };
 
-    let _application = RayTracer::new(
+    let application = match RayTracer::new(
         settings,
         window_config,
         match options.present_mode {
@@ -117,9 +117,19 @@ fn main() {
             _ => panic!(),
         },
         &options.visible_devices,
-    );
+    ) {
+        Ok(rt) => rt,
+        Err(e) => {
+            let e_str = format!("{}", e).to_string();
+            let e_str = e_str.replace("\n", "\n\t");
+            eprintln!("Failed to create application:\n\t{}", e_str);
+            return;
+        }
+    };
 
     print_vulkan_sdk_info();
+
+    application.run();
 }
 
 fn print_vulkan_sdk_info() {

@@ -1,12 +1,15 @@
 use vulkano::swapchain::PresentMode;
 
 use crate::{
-    vulkan::{application::Application, WindowConfig},
+    vulkan::{
+        application::{Application, ApplicationCreationError},
+        WindowConfig,
+    },
     UserSettings,
 };
 
 pub struct RayTracer {
-    _application: Application,
+    application: Application,
     _user_settings: UserSettings,
 }
 
@@ -16,10 +19,14 @@ impl RayTracer {
         window_config: WindowConfig,
         present_mode: PresentMode,
         visible_devices: &Option<Vec<u32>>,
-    ) -> RayTracer {
-        RayTracer {
-            _application: Application::new(window_config, present_mode, visible_devices).unwrap(),
+    ) -> Result<RayTracer, ApplicationCreationError> {
+        Ok(RayTracer {
+            application: Application::new(window_config, present_mode, visible_devices)?,
             _user_settings: user_settings,
-        }
+        })
+    }
+
+    pub fn run(self) {
+        self.application.run();
     }
 }

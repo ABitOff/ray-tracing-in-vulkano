@@ -1,5 +1,5 @@
 use super::{window::Window, WindowConfig};
-use std::sync::Arc;
+use std::{io::Cursor, sync::Arc};
 use vulkano::{
     device::{
         physical::{PhysicalDeviceError, PhysicalDeviceType},
@@ -14,9 +14,15 @@ use vulkano::{
     },
     LoadingError, VulkanError, VulkanLibrary,
 };
-use winit::{error::OsError, event_loop::EventLoop, window::WindowBuilder};
+use winit::{
+    error::OsError,
+    event::{Event, VirtualKeyCode, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::{Icon, WindowBuilder},
+};
 
 pub struct Application {
+    event_loop: EventLoop<()>,
     present_mode: PresentMode,
     window: Window,
     instance: Arc<Instance>,
@@ -68,6 +74,20 @@ impl Application {
         } else {
             None
         };
+
+        let icon = image::io::Reader::new(Cursor::new(
+            &include_bytes!("../../assets/textures/Vulkan.png")[..],
+        ))
+        .with_guessed_format()
+        .ok()
+        .and_then(|r| r.decode().ok())
+        .map(|i| i.into_rgba8())
+        .and_then(|i| {
+            let width = i.width();
+            let height = i.height();
+            Icon::from_rgba(i.into_vec(), width, height).ok()
+        });
+
         let window = Arc::new(
             WindowBuilder::new()
                 .with_resizable(window_config.resizable)
@@ -77,6 +97,7 @@ impl Application {
                     window_config.height,
                 ))
                 .with_fullscreen(fullscreen)
+                .with_window_icon(icon)
                 .build(&el)
                 .map_err(ApplicationCreationError::OsError)?,
         );
@@ -87,6 +108,8 @@ impl Application {
         let device_extensions = DeviceExtensions {
             khr_swapchain: true,
             khr_ray_tracing_pipeline: true,
+            khr_acceleration_structure: true,
+            khr_deferred_host_operations: true,
             ..DeviceExtensions::empty()
         };
 
@@ -171,6 +194,7 @@ impl Application {
         };
 
         Ok(Application {
+            event_loop: el,
             present_mode,
             window: Window {
                 config: window_config,
@@ -191,6 +215,27 @@ impl Application {
             in_flight_fences: Default::default(),
             current_frame: Default::default(),
         })
+    }
+
+    pub fn run(self) {
+        self.event_loop
+            .run(move |event, _, control_flow| match event {
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => {
+                    *control_flow = ControlFlow::Exit;
+                }
+                Event::WindowEvent {
+                    event: WindowEvent::KeyboardInput { input, .. },
+                    ..
+                } => {
+                    if let Some(VirtualKeyCode::Escape) = input.virtual_keycode {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                }
+                _ => (),
+            });
     }
 }
 

@@ -12,3 +12,4 @@ vulkano-shaders = "0.33.0"
 vulkano-win = "0.33.0"
 winit = "0.28.6"
 imgui-vulkano-renderer = { git = "https://github.com/s5suzuki/imgui-vulkano-renderer.git", branch = "vulkano-0.33.0" }
+image = { version = "0.24.7", default-features = false, features = ["png"] }
