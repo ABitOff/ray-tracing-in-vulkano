@@ -120,10 +120,11 @@ impl Application {
             khr_ray_tracing_pipeline: true,
             khr_acceleration_structure: true,
             khr_deferred_host_operations: true,
+            khr_shader_clock: true,
             ..DeviceExtensions::empty()
         };
 
-        let (physical_device, queue_family_index) = instance
+        let physical_device = instance
             .enumerate_physical_devices()
             .map_err(ApplicationCreationError::VulkanError)?
             .filter(|p| {
@@ -133,17 +134,7 @@ impl Application {
                         .as_ref()
                         .is_some_and(|v| !v.contains(&p.properties().device_id))
             })
-            .filter_map(|p| {
-                p.queue_family_properties()
-                    .iter()
-                    .enumerate()
-                    .position(|(i, q)| {
-                        q.queue_flags.intersects(QueueFlags::GRAPHICS)
-                            && p.surface_support(i as u32, &surface).unwrap_or(false)
-                    })
-                    .map(|i| (p, i as u32))
-            })
-            .min_by_key(|(p, _)| match p.properties().device_type {
+            .min_by_key(|p| match p.properties().device_type {
                 PhysicalDeviceType::DiscreteGpu => 0,
                 PhysicalDeviceType::IntegratedGpu => 1,
                 PhysicalDeviceType::VirtualGpu => 2,
@@ -153,21 +144,76 @@ impl Application {
             })
             .ok_or(ApplicationCreationError::NoPhysicalDevicesError)?;
 
+        let mut found_graphics = false;
+        let mut found_compute = false;
+        let mut queues = physical_device
+            .queue_family_properties()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, q)| {
+                let i = i as u32;
+                if !found_graphics
+                    && q.queue_flags.intersects(QueueFlags::GRAPHICS)
+                    && physical_device
+                        .surface_support(i, &surface)
+                        .unwrap_or(false)
+                {
+                    found_graphics = true;
+                    return Some((i, QueueFlags::GRAPHICS));
+                }
+                if !found_compute && q.queue_flags.intersects(QueueFlags::COMPUTE) {
+                    found_compute = true;
+                    return Some((i, QueueFlags::COMPUTE));
+                }
+                None
+            });
+
+        let graphics_queue_family_index = queues
+            .by_ref()
+            .filter(|(_, q)| *q == QueueFlags::GRAPHICS) // TODO: not sure if these will necessarily be in this order...
+            .next()
+            .ok_or(ApplicationCreationError::NoGraphicsQueueError)?
+            .0;
+
+        let compute_queue_family_index = queues
+            .by_ref()
+            .filter(|(_, q)| *q == QueueFlags::COMPUTE) // TODO: not sure if these will necessarily be in this order...
+            .next()
+            .ok_or(ApplicationCreationError::NoComputeQueueError)?
+            .0;
+
         let (device, mut queues) = Device::new(
             physical_device,
             DeviceCreateInfo {
                 enabled_extensions: device_extensions,
-                queue_create_infos: vec![QueueCreateInfo {
-                    queue_family_index,
-                    ..Default::default()
-                }],
+                queue_create_infos: vec![
+                    QueueCreateInfo {
+                        queue_family_index: graphics_queue_family_index,
+                        ..Default::default()
+                    },
+                    QueueCreateInfo {
+                        queue_family_index: compute_queue_family_index,
+                        ..Default::default()
+                    },
+                ],
                 ..Default::default()
             },
         )
         .map_err(ApplicationCreationError::DeviceCreationError)?;
-        let _queue = queues
+
+        let _graphics_queue = queues
             .next()
-            .ok_or(ApplicationCreationError::NoQueuesCreatedError)?;
+            .ok_or(ApplicationCreationError::NoGraphicsQueueError)?;
+        if _graphics_queue.queue_family_index() != graphics_queue_family_index {
+            return Err(ApplicationCreationError::NoGraphicsQueueError);
+        }
+
+        let _compute_queue = queues
+            .next()
+            .ok_or(ApplicationCreationError::NoComputeQueueError)?;
+        if _compute_queue.queue_family_index() != compute_queue_family_index {
+            return Err(ApplicationCreationError::NoComputeQueueError);
+        }
 
         let (swapchain, _images) = {
             let surface_capabilities = device
@@ -250,12 +296,14 @@ impl Application {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum ApplicationCreationError {
     NoPrimaryMonitorError,
     NoVideoModeError,
     NoPhysicalDevicesError,
-    NoQueuesCreatedError,
     NoSupportedCompositeAlphasError,
+    NoGraphicsQueueError,
+    NoComputeQueueError,
     LoadingError(LoadingError),
     InstanceCreationError(InstanceCreationError),
     OsError(OsError),
@@ -281,19 +329,18 @@ impl std::fmt::Display for ApplicationCreationError {
             ApplicationCreationError::NoPhysicalDevicesError => {
                 write!(f, "{:?}: Could not find a physical device.", self)
             }
-            ApplicationCreationError::NoQueuesCreatedError => {
-                write!(
-                    f,
-                    "{:?}: Could not create any queues on the physical device.",
-                    self
-                )
-            }
             ApplicationCreationError::NoSupportedCompositeAlphasError => {
                 write!(
                     f,
                     "{:?}: Could not find any supported composite alphas for the surface.",
                     self
                 )
+            }
+            ApplicationCreationError::NoGraphicsQueueError => {
+                write!(f, "{:?}: Could not create a drawable graphics queue.", self)
+            }
+            ApplicationCreationError::NoComputeQueueError => {
+                write!(f, "{:?}: Could not create a compute queue.", self)
             }
             ApplicationCreationError::LoadingError(e) => std::fmt::Display::fmt(e, f),
             ApplicationCreationError::InstanceCreationError(e) => std::fmt::Display::fmt(e, f),
